@@ -1,413 +1,241 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
-import FawryPaymentModal from '../FawryPaymentModal/FawryPaymentModal';
 
-export default function Home({ user }) {
-  const navigate = useNavigate();
-  const [activeVideo, setActiveVideo] = useState(null);
-  const [showZoomModal, setShowZoomModal] = useState(false);
-  const [selectedChapterForSub, setSelectedChapterForSub] = useState(null);
-  const [rechargeCode, setRechargeCode] = useState('');
-  const [subMessage, setSubMessage] = useState({ text: '', type: '' });
-  const [fawryInfo, setFawryInfo] = useState(null);
-  const [loadingFawry, setLoadingFawry] = useState(false);
+const defaultProducts = [
+  {
+    id: 'prod-1',
+    title: 'بيجامة قطن ناعمة - وردي هادئ',
+    category: 'pajamas',
+    desc: 'بيجامة صيفية مصممة من أجود أقمشة القطن الخالص المريحة للنوم والاسترخاء في البيت.',
+    price: 450,
+    image: 'https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'prod-2',
+    title: 'شنطة يد نسائية جلد فاخر',
+    category: 'bags',
+    desc: 'شنطة يد أنيقة ومساحة واسعة تناسب الخروج اليومي، العمل، والجامعة.',
+    price: 650,
+    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'prod-3',
+    title: 'طقم إكسسوارات رومانسي روز جولد',
+    category: 'accessories',
+    desc: 'سلسلة رقيقة مع إسوارة مرصعة بالفصوص اللامعة بتصميم يبرز نعومتك.',
+    price: 280,
+    image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'prod-4',
+    title: 'بيجامة شتوية مخملية دافئة',
+    category: 'pajamas',
+    desc: 'بيجامة قطيفة فائقة النعومة بتصميم كيوت ومريح للأيام الباردة.',
+    price: 550,
+    image: 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'prod-5',
+    title: 'حقيبة ظهر كاجوال للبنات',
+    category: 'bags',
+    desc: 'حقيبة ظهر عصرية وعملية للمشاوير الطويلة والدراسة بألوان باستيل جذابة.',
+    price: 520,
+    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+  {
+    id: 'prod-6',
+    title: 'مجموعة خواتم وأسوارة عصرية',
+    category: 'accessories',
+    desc: 'تشكيلة خواتم وأساور مطلية مقاومة للصدأ لإطلالة متكاملة.',
+    price: 220,
+    image: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
+    isAvailable: true,
+  },
+];
 
-  // قراءة بيانات المستخدم الحالي
-  const currentUser = user || JSON.parse(localStorage.getItem('user')) || {};
+const normalizeProduct = (product) => ({
+  id: product.id ?? product._id ?? `${product.title}-${product.category}`,
+  title: product.title ?? product.name ?? 'منتج Aura',
+  category: (product.category ?? 'pajamas').toLowerCase(),
+  desc: product.desc ?? product.description ?? 'منتج فاخر من متجر Aura.',
+  price: Number(product.price ?? 0),
+  image: product.image ?? product.img ?? defaultProducts[0].image,
+  isAvailable: product.isAvailable ?? true,
+});
 
-  const student = {
-    name: currentUser?.name || 'مريم قاسم',
-    code: currentUser?.code || 'PHY-0000',
-    progress: currentUser?.progress || 0
-  };
+export default function Home({ user, initialCategory = 'all', onAddToCart }) {
+  const location = useLocation();
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [products, setProducts] = useState(defaultProducts);
+  const [notification, setNotification] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const firstName = student.name.trim().split(' ')[0];
-  const progressPercentage = student.progress;
-
-  // فصول منهج فيزياء 3 ثانوي وحالة الاشتراك
-  const [chapters, setChapters] = useState([
-    {
-      id: 'chap-1',
-      title: 'الفصل الأول: التيار الكهربائي وقانون أوم وكيرشوف',
-      desc: 'دراسة شدة التيار، فرق الجهد، المقاومة النوعية، توصيل المقاومات، وقانونا كيرشوف.',
-      price: 150,
-      lecturesCount: 8,
-      hoursCount: 16,
-      isUnlocked: true // مفتوح افتراضياً للتجربة
-    },
-    {
-      id: 'chap-2',
-      title: 'الفصل الثاني: التأثير المغناطيسي للتيار الكهربي وأجهزة القياس',
-      desc: 'المجال المغناطيسي لسلك وملف دائري ولولبي، القوة وعزم الازدواج، والجلفانومتر والأميتر والفولتميتر.',
-      price: 180,
-      lecturesCount: 10,
-      hoursCount: 20,
-      isUnlocked: false
-    },
-    {
-      id: 'chap-3',
-      title: 'الفصل الثالث: الحث الكهرومغناطيسي',
-      desc: 'قانون فاراداي، الحث الذاتي والمتبادل، المولد الكهربي (الدينامو)، والمحولات والمحركات.',
-      price: 180,
-      lecturesCount: 12,
-      hoursCount: 22,
-      isUnlocked: false
-    },
-    {
-      id: 'chap-4',
-      title: 'الفصل الرابع: دوائر التيار المتردد',
-      desc: 'المعاوقة والمفاعلة الحثية والسعوية، دوائر الرنين والدائرة المهتزة.',
-      price: 140,
-      lecturesCount: 6,
-      hoursCount: 12,
-      isUnlocked: false
-    },
-    {
-      id: 'chap-5',
-      title: 'الفصل الخامس: ازدواجية الموجة والجسيم (الفيزياء الحديثة)',
-      desc: 'إشعاع الجسم الأسود، الظاهرة الكهروضوئية، وظاهرة كومتون، ومجهر القوة الذرية.',
-      price: 130,
-      lecturesCount: 6,
-      hoursCount: 10,
-      isUnlocked: false
-    },
-    {
-      id: 'chap-6',
-      title: 'الفصل السادس والسابع: الأطياف الذرية والليزر',
-      desc: 'طيف ذرة الهيدروجين، أشعة إكس، وانبعاث الليزر وتطبيقات الهولوجرام.',
-      price: 130,
-      lecturesCount: 5,
-      hoursCount: 9,
-      isUnlocked: false
-    },
-    {
-      id: 'chap-7',
-      title: 'الفصل الثامن: الإلكترونيات الحديثة',
-      desc: 'أشباه الموصلات، الوصلة الثنائية، الترانزستور، والبوابات المنطقية الرقمية.',
-      price: 120,
-      lecturesCount: 5,
-      hoursCount: 8,
-      isUnlocked: false
+  useEffect(() => {
+    const routeCategory = location.pathname.replace('/', '');
+    if (routeCategory === 'home' || routeCategory === '') {
+      setSelectedCategory('all');
+      return;
     }
-  ]);
 
-  // فتح الفصل عند الاشتراك وإرسال الطلب للسيرفر
-  const handleUnlockChapter = async (chapterId) => {
-    try {
-      const token = localStorage.getItem('token');
+    setSelectedCategory(routeCategory === 'pajamas' || routeCategory === 'bags' || routeCategory === 'accessories' ? routeCategory : initialCategory);
+  }, [initialCategory, location.pathname]);
 
-      // إرسال طلب الاشتراك للباك إند
-      const response = await axios.post(
-        `https://physics-lms-backend.vercel.app/api/chapters/${chapterId}/subscribe`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+  // جلب المنتجات الحقيقية من الـ Backend وتحديث الواجهة
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('http://localhost:5000/api/products');
+        const apiProducts = response.data?.products ?? response.data ?? [];
+
+        if (Array.isArray(apiProducts) && apiProducts.length > 0) {
+          setProducts(apiProducts.map(normalizeProduct));
         }
-      );
-
-      // تحديث حالة الفصل في الواجهة ليصبح مفتوحاً
-      setChapters(prev =>
-        prev.map(ch => ch.id === chapterId ? { ...ch, isUnlocked: true } : ch)
-      );
-
-      // تحديث بيانات المستخدم المخزنة في المتصفح إذا أرجع السيرفر القائمة المحدثة
-      if (response.data?.subscribedChapters) {
-        const storedUser = JSON.parse(localStorage.getItem('user')) || {};
-        storedUser.subscribedChapters = response.data.subscribedChapters;
-        localStorage.setItem('user', JSON.stringify(storedUser));
+      } catch (error) {
+        console.error('Error fetching products from backend, falling back to default:', error);
+        setProducts(defaultProducts);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setSubMessage({ text: 'تم تفعيل الفصل بنجاح! يمكنك الآن مشاهدة المحاضرات.', type: 'success' });
-      
-      setTimeout(() => {
-        setSelectedChapterForSub(null);
-        setSubMessage({ text: '', type: '' });
-        setRechargeCode('');
-      }, 1500);
-
-    } catch (error) {
-      console.error('Subscription error:', error);
-      // في حالة وجود خطأ في الباك إند ولكن ترغبين بالتجربة محلياً:
-      setChapters(prev =>
-        prev.map(ch => ch.id === chapterId ? { ...ch, isUnlocked: true } : ch)
-      );
-      setSubMessage({ text: 'تم تفعيل الفصل تجريبياً بنجاح!', type: 'success' });
-      setTimeout(() => {
-        setSelectedChapterForSub(null);
-        setSubMessage({ text: '', type: '' });
-      }, 1200);
-    }
-  };
+    fetchProducts();
+  }, []);
   
-  // طلب كود فوري من السيرفر
- const handleRequestFawryCode = async (chapter) => {
-  try {
-    setLoadingFawry(true);
-    const token = localStorage.getItem('token');
-    
-    const response = await axios.post(
-      'https://physics-lms-backend.vercel.app/api/payment/fawry/create-order',
-      {
-        chapterId: chapter.id || chapter._id,
-        amount: chapter.price
-      },
-      {
-        headers: { Authorization: `Bearer ${token}` }
-      }
-    );
+  const filteredProducts = useMemo(
+    () =>
+      selectedCategory === 'all'
+        ? products
+        : products.filter((item) => item.category === selectedCategory),
+    [products, selectedCategory]
+  );
 
-    // دمج البيانات العائدة لضمان تطابقها مع FawryPaymentModal
-    setFawryInfo({
-      ...response.data,
-      referenceNumber: response.data.fawryRefNumber,
-      amount: chapter.price,
-      fawryCode: '788'
-    });
-    setSelectedChapterForSub(null);
-  } catch (error) {
-    console.error('Fawry order error:', error);
-    // توليد كود محاكاة تجريبي تلقائياً إذا فشل الاتصال
-    const fakeRef = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-    const expDate = new Date();
-    expDate.setHours(expDate.getHours() + 48);
+  const handleAddToCart = (product) => {
+    if (onAddToCart) {
+      onAddToCart(product);
+    }
 
-    setFawryInfo({
-      referenceNumber: fakeRef,
-      amount: chapter.price,
-      fawryCode: '788',
-      expireDate: expDate.toLocaleDateString('ar-EG') + ' ' + expDate.toLocaleTimeString('ar-EG')
-    });
-    setSelectedChapterForSub(null);
-  } finally {
-    setLoadingFawry(false);
-  }
-};
+    setNotification(`تمت إضافة "${product.title}" إلى السلة بنجاح! 🛍️`);
+    setTimeout(() => setNotification(''), 2500);
+  };
 
   return (
-    <div dir="rtl" className="bg-light min-vh-100 pb-5">
+    <div dir="rtl" className="min-vh-100 pb-5" style={{ backgroundColor: '#fcf8f8' }}>
       <div className="container py-4">
-
-        {/* كارت الترحيب والإنجاز */}
-        <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+        <div className="card border-0 shadow-sm rounded-4 p-4 mb-4 text-white" style={{ background: 'linear-gradient(135deg, #c79298 0%, #a06b72 100%)' }}>
           <div className="row align-items-center">
-            <div className="col-md-6 text-md-end text-center mb-3 mb-md-0">
-              <h3 className="fw-bold mb-2 text-dark">
-                مرحباً بكِ يا {firstName} 👋
-              </h3>
-              <p className="text-muted mb-0 small">
-                {progressPercentage > 0 
-                  ? `واصل متابعة حصصك، لقد أكملت ${progressPercentage}% من المنهج.`
-                  : 'ابدأي بمشاهدة أولى محاضراتك الآن لتسجيل تقدمك في المنهج!'}
+            <div className="col-md-8 text-md-end text-center mb-3 mb-md-0">
+              <h2 className="fw-bold mb-2">أهلاً بك في عالم AURA ✨</h2>
+              <p className="mb-0 opacity-75 small">
+                وجهتك الأولى للأنوثة والأناقة؛ اختاري أجمل البيجامات المريحة، الشنط العصرية، والإكسسوارات المميزة.
               </p>
             </div>
-
-            <div className="col-md-6">
-              <div className="d-flex justify-content-between align-items-center mb-2 small text-muted">
-                <span className="fw-bold text-primary">{progressPercentage}%</span>
-                <span>نسبة الإنجاز الإجمالية</span>
-              </div>
-              <div className="progress" style={{ height: '10px', borderRadius: '10px', backgroundColor: '#e9ecef' }}>
-                <div
-                  className="progress-bar progress-bar-striped progress-bar-animated bg-primary"
-                  role="progressbar"
-                  style={{ width: `${progressPercentage}%`, borderRadius: '10px' }}
-                  aria-valuenow={progressPercentage}
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                ></div>
-              </div>
+            <div className="col-md-4 text-center">
+              <span className="badge bg-white text-dark px-4 py-2 rounded-pill fw-bold shadow-sm" style={{ color: '#684549' }}>
+                تشكيلة صيف وشتوي جديدة
+              </span>
             </div>
           </div>
         </div>
 
-        {/* بنر حصة زوم المباشرة */}
-        <div className="card border-primary border-opacity-25 bg-primary bg-opacity-10 rounded-4 p-3 mb-5">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-              <span className="badge bg-danger mb-1">بث مباشر اليوم</span>
-              <h5 className="fw-bold text-dark mb-1">حصة حل المسائل المتقدمة وقوانين كيرشوف</h5>
-              <small className="text-muted">الموعد: اليوم الساعة 8:00 مساءً عبر Zoom</small>
-            </div>
-            <button onClick={() => setShowZoomModal(true)} className="btn btn-primary fw-bold px-4 py-2 rounded-3 shadow-sm">
-              <i className="bi bi-camera-video me-1"></i> رابط البث المباشر
+        {notification && (
+          <div className="alert alert-success text-center fw-bold rounded-3 shadow-sm py-2 mb-4">
+            {notification}
+          </div>
+        )}
+
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+          <div>
+            <h4 className="fw-bold mb-1" style={{ color: '#684549' }}>تصفح منتجات أورا</h4>
+            <p className="text-muted small mb-0">تسوقي أحدث صيحات الموضة والإكسسوارات والبيجامات المصنوعة خصيصاً لكِ</p>
+          </div>
+
+          <div className="d-flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={`btn btn-sm rounded-pill px-3 fw-bold ${selectedCategory === 'all' ? 'text-white' : 'btn-outline-secondary'}`}
+              style={selectedCategory === 'all' ? { backgroundColor: '#c79298', borderColor: '#c79298' } : {}}
+            >
+              الكل
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('pajamas')}
+              className={`btn btn-sm rounded-pill px-3 fw-bold ${selectedCategory === 'pajamas' ? 'text-white' : 'btn-outline-secondary'}`}
+              style={selectedCategory === 'pajamas' ? { backgroundColor: '#c79298', borderColor: '#c79298' } : {}}
+            >
+              بيجامات 🌙
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('bags')}
+              className={`btn btn-sm rounded-pill px-3 fw-bold ${selectedCategory === 'bags' ? 'text-white' : 'btn-outline-secondary'}`}
+              style={selectedCategory === 'bags' ? { backgroundColor: '#c79298', borderColor: '#c79298' } : {}}
+            >
+              شنط 👜
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('accessories')}
+              className={`btn btn-sm rounded-pill px-3 fw-bold ${selectedCategory === 'accessories' ? 'text-white' : 'btn-outline-secondary'}`}
+              style={selectedCategory === 'accessories' ? { backgroundColor: '#c79298', borderColor: '#c79298' } : {}}
+            >
+              إكسسوارات ✨
             </button>
           </div>
         </div>
 
-        {/* عنوان قسم الفصول */}
-        <div className="d-flex align-items-center justify-content-between mb-4">
-          <div>
-            <h4 className="fw-bold text-dark mb-1">فصول المنهج الدراسي (الثانوية العامة)</h4>
-            <p className="text-muted small mb-0">اشترك في الفصل لفتح المحاضرات والواجبات والاختبارات الخاصة به</p>
-          </div>
-          <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-semibold">
-            8 فصول دراسية
-          </span>
-        </div>
+        {loading && (
+          <div className="text-center text-muted py-4">جاري تحميل المنتجات...</div>
+        )}
 
-        {/* شبكة الفصول (Cards) */}
         <div className="row g-4 mb-5">
-          {chapters.map((ch) => (
-            <div key={ch.id} className="col-lg-6">
-              <div className={`card h-100 rounded-4 border-0 shadow-sm transition-all overflow-hidden ${
-                ch.isUnlocked ? 'bg-white' : 'bg-white border border-secondary border-opacity-10'
-              }`}>
+          {filteredProducts.map((prod) => (
+            <div key={prod.id} className="col-md-4 col-sm-6">
+              <div className="card h-100 rounded-4 border-0 shadow-sm overflow-hidden bg-white position-relative">
+                <div style={{ height: '220px', overflow: 'hidden', backgroundColor: '#f9f3f4' }}>
+                  <img src={prod.image} alt={prod.title} className="w-100 h-100 object-fit-cover" style={{ transition: 'transform 0.3s' }} />
+                </div>
+
                 <div className="card-body p-4 d-flex flex-column justify-content-between">
                   <div>
-                    {/* شارة الحالة والنوع */}
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                      <span className="badge bg-light text-primary border rounded-pill px-3 py-1 text-xs">
-                        فيزياء تالتة ثانوي
-                      </span>
-                      
-                      {ch.isUnlocked ? (
-                        <span className="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill d-flex align-items-center gap-1">
-                          <i className="bi bi-unlock-fill"></i> مفعّل ومفتوح
-                        </span>
-                      ) : (
-                        <span className="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 rounded-pill d-flex align-items-center gap-1">
-                          <i className="bi bi-lock-fill"></i> مقفول باشتراك
-                        </span>
-                      )}
-                    </div>
-
-                    <h5 className="fw-bold text-dark mb-2">{ch.title}</h5>
-                    <p className="text-muted small mb-3 leading-relaxed">{ch.desc}</p>
-
-                    <div className="d-flex align-items-center gap-3 text-muted small mb-4">
-                      <span><i className="bi bi-collection-play me-1 text-primary"></i> {ch.lecturesCount} محاضرات</span>
-                      <span><i className="bi bi-clock me-1 text-primary"></i> {ch.hoursCount} ساعة تدريب</span>
-                      <span><i className="bi bi-file-earmark-check me-1 text-primary"></i> امتحانات دورية</span>
-                    </div>
+                    <span className="badge bg-light text-secondary border rounded-pill px-3 py-1 mb-2">
+                      {prod.category === 'pajamas' ? 'بيجامات بنات' : prod.category === 'bags' ? 'شنط نسائية' : 'إكسسوارات'}
+                    </span>
+                    <h5 className="fw-bold text-dark mb-2">{prod.title}</h5>
+                    <p className="text-muted small mb-3">{prod.desc}</p>
                   </div>
 
-                  {/* الجزء السفلي: السعر أو زر الدخول */}
                   <div className="border-top pt-3 d-flex align-items-center justify-content-between">
-                    {ch.isUnlocked ? (
-                      <button 
-                        onClick={() => navigate('/lesson')} 
-                        className="btn btn-success fw-bold w-100 py-2 rounded-3 d-flex align-items-center justify-content-center gap-2"
-                      >
-                        <i className="bi bi-play-circle fs-5"></i> دخول لمشاهدة الدروس والواجبات
-                      </button>
-                    ) : (
-                      <>
-                        <div>
-                          <span className="text-muted d-block text-xs">سعر الفصل</span>
-                          <span className="fw-bold fs-5 text-primary">{ch.price} <small className="fs-6">ج.م</small></span>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedChapterForSub(ch);
-                            setSubMessage({ text: '', type: '' });
-                          }}
-                          className="btn btn-primary fw-bold px-4 py-2 rounded-3 d-flex align-items-center gap-2"
-                        >
-                          <i className="bi bi-lock-fill"></i> اشترك لفتح الفصل
-                        </button>
-                      </>
-                    )}
-                  </div>
+                    <div>
+                      <span className="text-muted d-block" style={{ fontSize: '11px' }}>السعر</span>
+                      <span className="fw-bold fs-5" style={{ color: '#684549' }}>
+                        {prod.price} <small className="fs-6">ج.م</small>
+                      </span>
+                    </div>
 
+                    <button
+                      type="button"
+                      onClick={() => handleAddToCart(prod)}
+                      className="btn fw-bold px-3 py-2 rounded-3 text-white d-flex align-items-center gap-1 shadow-sm"
+                      style={{ backgroundColor: '#c79298', fontSize: '13px' }}
+                    >
+                      <i className="bi bi-bag-plus"></i> إضافة للسلة
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
-
       </div>
-
-      {/* مودال اختيار طريقة الاشتراك في الفصل */}
-      {selectedChapterForSub && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1040 }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4 border-0 p-3 shadow-lg">
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title fw-bold">الاشتراك في {selectedChapterForSub.title}</h5>
-                <button type="button" className="btn-close" onClick={() => setSelectedChapterForSub(null)}></button>
-              </div>
-              <div className="modal-body">
-                <div className="bg-light p-3 rounded-3 mb-3 text-center border">
-                  <span className="text-muted small d-block">إجمالي قيمة الاشتراك</span>
-                  <span className="fs-3 fw-bold text-primary">{selectedChapterForSub.price} ج.م</span>
-                </div>
-
-                {subMessage.text && (
-                  <div className={`alert alert-${subMessage.type} small py-2 mb-3`}>
-                    {subMessage.text}
-                  </div>
-                )}
-
-                {/* خيار 1: الدفع عبر فوري بإصدار كود دفع */}
-                <div className="border border-warning border-opacity-75 rounded-3 p-3 bg-warning bg-opacity-10 mb-3">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark d-flex align-items-center gap-1">
-                      <i className="bi bi-upc-scan text-warning fs-5"></i> الدفع عبر منافذ فوري (FawryPay)
-                    </span>
-                    <span className="badge bg-warning text-dark">فوري باي</span>
-                  </div>
-                  <p className="text-muted small mb-3">
-                    احصل على كود مرجعي مكون من 10 أرقام وادفع في أي منفذ فوري أو عبر تطبيق فوري.
-                  </p>
-                  <button 
-                    disabled={loadingFawry}
-                    onClick={() => handleRequestFawryCode(selectedChapterForSub)}
-                    className="btn btn-dark fw-bold w-100 py-2 rounded-3 d-flex align-items-center justify-content-center gap-2"
-                  >
-                    {loadingFawry ? 'جاري استخراج الكود...' : 'إصدار كود دفع فوري (Generate Code)'}
-                  </button>
-                </div>
-
- 
-
-                {/* خيار 3: التفعيل التجريبي الفوري */}
-                <button 
-                  onClick={() => handleUnlockChapter(selectedChapterForSub.id)}
-                  className="btn btn-outline-success w-100 fw-bold py-2 rounded-3"
-                >
-                  تفعيل تجريبي فوري (Demo Unlock)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* مودال الزوم المباشر */}
-      {showZoomModal && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content rounded-4 border-0 p-3">
-              <div className="modal-header border-0 pb-0">
-                <h5 className="modal-title fw-bold">تفاصيل بث Zoom</h5>
-                <button type="button" className="btn-close" onClick={() => setShowZoomModal(false)}></button>
-              </div>
-              <div className="modal-body">
-                <p className="text-muted small">انضم قبل بدء الحصة بـ 10 دقائق لتجهيز الصوت.</p>
-                <div className="bg-light p-3 rounded-3 mb-3 small">
-                  <div><strong>معرف الاجتماع (Meeting ID):</strong> 892 4110 5590</div>
-                  <div className="mt-1"><strong>كلمة السر (Passcode):</strong> PHY2026</div>
-                </div>
-                <a href="https://zoom.us" target="_blank" rel="noreferrer" className="btn btn-primary w-100 fw-bold py-2 rounded-3">
-                  فتح Zoom والانضمام الآن
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* مودال كود فوري المنبثق */}
-      {fawryInfo && (
-        <FawryPaymentModal 
-          fawryData={fawryInfo} 
-          onClose={() => setFawryInfo(null)} 
-        />
-      )}
-
     </div>
   );
 }

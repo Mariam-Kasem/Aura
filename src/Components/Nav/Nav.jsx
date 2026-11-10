@@ -1,110 +1,128 @@
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
-export default function Nav({ user, onLogout }) {
+export default function Nav({ user, cartCount = 0, onOpenCart, onLogout }) {
   const navigate = useNavigate();
 
-  // روابط شريط التنقل الخاصة بالطلاب فقط
-  const studentNavLinks = [
-    { path: '/home', label: 'الرئيسية' },
-    { path: '/lesson', label: 'صفحة الدرس' },
-    { path: '/exam', label: 'الامتحان' },
-    { path: '/profile', label: 'الملف الشخصي' }
-  ];
-
-  // روابط شريط التنقل الخاصة بالمعلم فقط
-  const adminNavLinks = [
-    { path: '/admin', label: '⚙️ لوحة الإدارة والتحكم', isAdminBtn: true },
-    { path: '/home', label: '👁️ معاينة المنصة كطالب', isAdminBtn: false }
-  ];
-
-  const currentLinks = user?.role === 'admin' ? adminNavLinks : studentNavLinks;
-
   return (
-    <nav className="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-2 px-3 px-md-4 sticky-top" dir="rtl">
-      <div className="container-fluid">
+    <nav className="navbar navbar-expand-lg bg-white border-bottom shadow-sm py-3 px-3 px-md-5 sticky-top" dir="rtl">
+      <div className="container-fluid d-flex align-items-center justify-content-between">
         
-        {/* اللوجو واسم المنصة */}
+        {/* بيانات المستخدم والسلة على اليمين */}
+        <div className="d-flex align-items-center gap-3">
+          {user?.role !== 'admin' && (
+            <button
+              onClick={onOpenCart}
+              className="btn position-relative rounded-circle p-2 d-flex align-items-center justify-content-center shadow-sm"
+              style={{ width: '42px', height: '42px', backgroundColor: '#fdf2f4', border: '1px solid #e8c5c8' }}
+              title="سلة التسوق"
+            >
+              <i className="bi bi-bag-heart fs-5" style={{ color: '#8b7380' }}></i>
+              {cartCount > 0 && (
+                <span 
+                  className="position-absolute top-0 start-100 translate-middle badge rounded-pill"
+                  style={{ backgroundColor: '#b87380', fontSize: '10px' }}
+                >
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {user && (
+            <div className="d-flex align-items-center gap-2">
+              <div 
+                className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm"
+                style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  fontSize: '14px',
+                  backgroundColor: '#b87380'
+                }}
+              >
+                {user?.role === 'admin' ? 'AU' : (user?.name ? user.name.slice(0, 2).toUpperCase() : 'AU')}
+              </div>
+            </div>
+          )}
+
+          {user ? (
+            <button 
+              type="button"
+              onClick={onLogout} 
+              className="btn btn-sm px-3 py-1 text-secondary border-0"
+              style={{ fontSize: '13px' }}
+            >
+              تسجيل الخروج
+            </button>
+          ) : (
+            <button 
+              type="button"
+              onClick={() => navigate('/login')} 
+              className="btn btn-sm px-3 py-1 rounded-pill text-white fw-bold"
+              style={{ backgroundColor: '#b87380' }}
+            >
+              تسجيل الدخول
+            </button>
+          )}
+        </div>
+
+        {/* اللوجو في المنتصف (AURA) */}
         <div 
-          className="d-flex align-items-center gap-2" 
-          onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/home')} 
+          className="d-flex flex-column align-items-center mx-auto" 
+          onClick={() => navigate('/')} 
           style={{ cursor: 'pointer' }}
         >
           <div 
-            className="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-3 shadow-sm"
-            style={{ width: '42px', height: '42px' }}
+            className="d-flex align-items-center justify-content-center rounded-circle shadow-sm mb-1"
+            style={{ width: '45px', height: '45px', backgroundColor: '#b87380', color: '#ffffff' }}
           >
-            <i className="bi bi-atom fs-3"></i>
+            <span className="fw-bold fs-4" style={{ fontFamily: 'serif', letterSpacing: '1px' }}>AU</span>
           </div>
-          <div>
-            <h5 className="mb-0 fw-bold text-dark">منصة فيزياء المستقبل</h5>
-            <small className="text-muted" style={{ fontSize: '11px' }}>
-              {user?.role === 'admin' ? 'لوحة تحكم المعلم' : 'الصف الثالث الثانوي'}
-            </small>
-          </div>
+          <h4 className="mb-0 fw-bold" style={{ color: '#4a3b44', letterSpacing: '3px', fontFamily: 'serif' }}>AURA</h4>
         </div>
 
-        {/* روابط التنقل المخصصة حسب الرتبة */}
-        <div className="d-flex align-items-center bg-light p-1 rounded-4 border mx-auto my-2 my-lg-0 flex-wrap justify-content-center gap-1">
-          {currentLinks.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => {
-                if (user?.role === 'admin') {
-                  if (item.isAdminBtn) {
-                    return `btn btn-sm rounded-3 px-3 fw-bold text-decoration-none ${
-                      isActive ? 'btn-warning shadow-sm text-dark' : 'text-dark border-0'
-                    }`;
-                  }
-                  return `btn btn-sm rounded-3 px-3 fw-bold text-decoration-none ${
-                    isActive ? 'btn-secondary text-white shadow-sm' : 'text-secondary border-0'
-                  }`;
-                }
-
-                // تصميم روابط الطلاب
-                return `btn btn-sm rounded-3 px-3 fw-bold text-decoration-none transition-all ${
-                  isActive 
-                    ? 'btn-primary shadow-sm text-white' 
-                    : 'text-secondary border-0'
-                }`;
-              }}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
-
-        {/* بيانات المستخدم وزر تسجيل الخروج */}
-        <div className="d-flex align-items-center gap-2">
-          <div className="d-flex align-items-center gap-2 bg-light px-3 py-1 rounded-3 border d-none d-sm-flex">
-            <div 
-              className={`${user?.role === 'admin' ? 'bg-warning text-dark' : 'bg-primary text-white'} rounded-circle d-flex align-items-center justify-content-center fw-bold`}
-              style={{ width: '32px', height: '32px', fontSize: '13px' }}
-            >
-              {user?.role === 'admin' ? 'م' : (user?.name ? user.name.charAt(0) : 'ط')}
-            </div>
-            <div className="text-end">
-              <div className="fw-bold small text-dark mb-0 d-flex align-items-center gap-1">
-                {user?.name || 'مستخدم'}
-                {user?.role === 'admin' && (
-                  <span className="badge bg-warning text-dark" style={{ fontSize: '9px' }}>معلم / إدارة</span>
-                )}
-              </div>
-              <div className="text-muted" style={{ fontSize: '10px' }}>
-                {user?.role === 'admin' ? 'صلاحيات كاملة' : `كود: ${user?.code || 'PHY-3042'}`}
-              </div>
-            </div>
-          </div>
-
-          <button 
-            type="button"
-            onClick={onLogout} 
-            className="btn btn-outline-danger btn-sm px-3 py-1 fw-bold rounded-3 d-flex align-items-center gap-1"
+        {/* روابط التنقل الرئيسية على اليسار */}
+        <div className="d-none d-lg-flex align-items-center gap-4">
+          <NavLink 
+            to="/" 
+            className={({ isActive }) => `text-decoration-none fw-semibold ${isActive ? 'fw-bold' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? '#b87380' : '#6c757d', fontSize: '15px' })}
           >
-            <i className="bi bi-box-arrow-left"></i>
-            <span>خروج</span>
-          </button>
+            الرئيسية
+          </NavLink>
+
+          <NavLink 
+            to="/pajamas" 
+            className={({ isActive }) => `text-decoration-none fw-semibold ${isActive ? 'fw-bold' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? '#b87380' : '#6c757d', fontSize: '15px' })}
+          >
+            البيجامات
+          </NavLink>
+
+          <NavLink 
+            to="/bags" 
+            className={({ isActive }) => `text-decoration-none fw-semibold ${isActive ? 'fw-bold' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? '#b87380' : '#6c757d', fontSize: '15px' })}
+          >
+            الشنط
+          </NavLink>
+
+          <NavLink 
+            to="/accessories" 
+            className={({ isActive }) => `text-decoration-none fw-semibold ${isActive ? 'fw-bold' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? '#b87380' : '#6c757d', fontSize: '15px' })}
+          >
+            الاكسسوارات
+          </NavLink>
+
+
+          <NavLink 
+            to="/contact" 
+            className={({ isActive }) => `text-decoration-none fw-semibold ${isActive ? 'fw-bold' : ''}`}
+            style={({ isActive }) => ({ color: isActive ? '#b87380' : '#6c757d', fontSize: '15px' })}
+          >
+            تواصل معنا
+          </NavLink>
         </div>
 
       </div>
