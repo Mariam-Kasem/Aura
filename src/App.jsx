@@ -6,6 +6,8 @@ import Home from './Components/Home/Home';
 import Footer from './Components/Footer/Footer';
 import Admin from './Components/Admin/Admin';
 import Contact from './Components/Contact/Contact';
+import Auth from './Components/Auth/Auth'; // <-- تم إضافة الاستيراد الناقص هنا
+
 function MainLayout({ user, onLogout }) {
   const navigate = useNavigate();
   const [cart, setCart] = useState([]);
