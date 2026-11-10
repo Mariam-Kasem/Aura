@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 import Nav from './Components/Nav/Nav';
@@ -6,7 +6,6 @@ import Home from './Components/Home/Home';
 import Footer from './Components/Footer/Footer';
 import Admin from './Components/Admin/Admin';
 import Contact from './Components/Contact/Contact';
-import Auth from './Components/Auth/Auth'; // <-- تم إضافة الاستيراد الناقص هنا
 
 function MainLayout({ user, onLogout }) {
   const navigate = useNavigate();
@@ -45,14 +44,9 @@ function MainLayout({ user, onLogout }) {
           <Route
             path="/admin"
             element={
-              user?.role === 'admin' ? (
-                <Admin onExit={() => navigate('/home')} />
-              ) : (
-                <Navigate to="/home" replace />
-              )
+              <Admin onExit={() => navigate('/home')} />
             }
           />
-
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </main>
@@ -63,52 +57,12 @@ function MainLayout({ user, onLogout }) {
 }
 
 export default function App() {
-  const [user, setUser] = useState(() => {
-    try {
-      const savedUser = localStorage.getItem('user');
-      return savedUser ? JSON.parse(savedUser) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-    }
-  }, [user]);
-
-  const handleLogout = () => {
-    setUser(null);
-  };
+  const user = { name: 'زائر', role: 'admin' }; // مستخدم افتراضي بدون لوجين
 
   return (
     <HashRouter>
       <Routes>
-        <Route
-          path="/login"
-          element={
-            !user ? (
-              <Auth onAuthSuccess={(userData) => setUser(userData)} />
-            ) : (
-              <Navigate to="/home" replace />
-            )
-          }
-        />
-
-        <Route
-          path="/*"
-          element={
-            user ? (
-              <MainLayout user={user} onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        <Route path="/*" element={<MainLayout user={user} onLogout={() => {}} />} />
       </Routes>
     </HashRouter>
   );
